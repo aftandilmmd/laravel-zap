@@ -484,6 +484,20 @@ You will need to update the `create_schedules_table` and `create_schedule_period
 
 ---
 
+## 🧠 AI Agent Support
+
+Laravel Zap ships with native [Laravel Boost](https://laravel.com/ai/boost) 2.0 Skills. When both packages are installed, Boost auto-discovers Zap's skills—giving AI agents accurate knowledge of the scheduling API.
+
+| Skill | What it covers |
+|-------|----------------|
+| `zap-schedules` | Schedule types, fluent builder API, validation rules, conflict detection |
+| `zap-availability` | Bookable slots, availability checks, querying schedules |
+| `zap-recurrence` | All recurrence patterns (daily, weekly, odd/even weeks, monthly, and more) |
+
+No configuration needed—just install both packages and your AI assistant understands Zap.
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Follow PSR-12 coding standards and include tests.
