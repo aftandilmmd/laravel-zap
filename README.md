@@ -182,6 +182,15 @@ $schedule->semiannually(['days_of_month' => [10], 'start_month' => 3])
 // Annually (multiple days, optional start_month anchor)
 $schedule->annually(['days_of_month' => [1, 15], 'start_month' => 4])
     ->from('2025-04-01')->to('2026-04-01');
+
+// Dynamic weekly frequencies (3-52 weeks)
+$schedule->everyThreeWeeks(['monday', 'friday'])->from('2025-01-06')->to('2025-12-31');
+$schedule->everyFourWeeks(['tuesday'], '2025-01-06')->from('2025-01-13'); // with startsOn anchor
+$schedule->everySixWeeks(['wednesday'])->forYear(2025);
+
+// Dynamic monthly frequencies (4, 5, 7-11 months)
+$schedule->everyFourMonths(['day_of_month' => 15])->forYear(2025);
+$schedule->everyFiveMonths(['days_of_month' => [1, 15], 'start_month' => 2])->forYear(2025);
 ```
 
 ### Date Ranges
