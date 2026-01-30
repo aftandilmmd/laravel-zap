@@ -2,24 +2,108 @@
 
 namespace Zap\Builders;
 
+use BadMethodCallException;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use NumberFormatter;
 use Zap\Data\DailyFrequencyConfig;
 use Zap\Data\FrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\AnnuallyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\BiMonthlyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\EveryXMonthsFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\MonthlyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\QuarterlyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\SemiAnnuallyFrequencyConfig;
 use Zap\Data\WeeklyFrequencyConfig\BiWeeklyFrequencyConfig;
+use Zap\Data\WeeklyFrequencyConfig\EveryXWeeksFrequencyConfig;
 use Zap\Enums\Frequency;
 use Zap\Enums\ScheduleTypes;
 use Zap\Models\Schedule;
 use Zap\Services\ScheduleService;
 
+/**
+ * @method self everyThreeWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFourWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFiveWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everySixWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everySevenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyEightWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyNineWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyElevenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwelveWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirteenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFourteenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFifteenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everySixteenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everySeventeenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyEighteenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyNineteenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentyWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentyOneWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentyTwoWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentyThreeWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentyFourWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentyFiveWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentySixWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentySevenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentyEightWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyTwentyNineWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtyWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtyOneWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtyTwoWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtyThreeWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtyFourWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtyFiveWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtySixWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtySevenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtyEightWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyThirtyNineWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortyWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortyOneWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortyTwoWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortyThreeWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortyFourWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortyFiveWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortySixWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortySevenWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortyEightWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFortyNineWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFiftyWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFiftyOneWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFiftyTwoWeeks(array $days = [], \Carbon\CarbonInterface|string|null $startsOn = null)
+ * @method self everyFourMonths(array $config = [])
+ * @method self everyFiveMonths(array $config = [])
+ * @method self everySevenMonths(array $config = [])
+ * @method self everyEightMonths(array $config = [])
+ * @method self everyNineMonths(array $config = [])
+ * @method self everyTenMonths(array $config = [])
+ * @method self everyElevenMonths(array $config = [])
+ */
 class ScheduleBuilder
 {
+    /**
+     * Mapping of week counts to existing named methods.
+     * These redirect to the existing frequency methods instead of using generic config.
+     */
+    private const WEEKLY_REDIRECTS = [
+        1 => 'weekly',
+        2 => 'biweekly',
+    ];
+
+    /**
+     * Mapping of month counts to existing named methods.
+     * These redirect to the existing frequency methods instead of using generic config.
+     */
+    private const MONTHLY_REDIRECTS = [
+        1 => 'monthly',
+        2 => 'bimonthly',
+        3 => 'quarterly',
+        6 => 'semiannually',
+        12 => 'annually',
+    ];
+
     private ?Model $schedulable = null;
 
     private array $attributes = [];
@@ -584,5 +668,140 @@ class ScheduleBuilder
         $clone->rules = $this->rules;
 
         return $clone;
+    }
+
+    /**
+     * Handle dynamic method calls for everyXWeeks and everyXMonths patterns.
+     *
+     * @param  string  $method
+     * @param  array<int, mixed>  $parameters
+     *
+     * @throws BadMethodCallException
+     */
+    public function __call(string $method, array $parameters): self
+    {
+        // Match patterns like everyThreeWeeks, everyFourMonths, etc.
+        if (preg_match('/^every([A-Z][a-zA-Z]+)(Week|Weeks|Month|Months)$/', $method, $matches)) {
+            $wordNumber = $matches[1];
+            $unit = strtolower($matches[2]);
+
+            $number = $this->wordToNumber($wordNumber);
+
+            if ($number === null) {
+                throw new BadMethodCallException("Invalid number word '{$wordNumber}' in method {$method}");
+            }
+
+            // Handle weeks (1-52)
+            if (str_starts_with($unit, 'week')) {
+                if ($number < 1 || $number > 52) {
+                    throw new BadMethodCallException("Week frequency must be between 1 and 52, got {$number}");
+                }
+
+                // Check for redirect to existing method
+                if (isset(self::WEEKLY_REDIRECTS[$number])) {
+                    $redirectMethod = self::WEEKLY_REDIRECTS[$number];
+                    $days = $parameters[0] ?? [];
+                    $startsOn = $parameters[1] ?? null;
+
+                    // weekly() only accepts days, biweekly() accepts days and startsOn
+                    if ($redirectMethod === 'weekly') {
+                        return $this->weekly($days);
+                    }
+
+                    return $this->biweekly($days, $startsOn);
+                }
+
+                return $this->setEveryXWeeksFrequency(
+                    $number,
+                    $parameters[0] ?? [],
+                    $parameters[1] ?? null
+                );
+            }
+
+            // Handle months (1-12)
+            if (str_starts_with($unit, 'month')) {
+                if ($number < 1 || $number > 12) {
+                    throw new BadMethodCallException("Month frequency must be between 1 and 12, got {$number}");
+                }
+
+                // Check for redirect to existing method
+                if (isset(self::MONTHLY_REDIRECTS[$number])) {
+                    $redirectMethod = self::MONTHLY_REDIRECTS[$number];
+
+                    return $this->$redirectMethod($parameters[0] ?? []);
+                }
+
+                return $this->setEveryXMonthsFrequency(
+                    $number,
+                    $parameters[0] ?? []
+                );
+            }
+        }
+
+        throw new BadMethodCallException("Method {$method} does not exist on ".static::class);
+    }
+
+    /**
+     * Convert a word number (e.g., "Three", "TwentyOne") to its integer value.
+     *
+     * @param  string  $word  The word representation of a number
+     * @return int|null The integer value, or null if conversion fails
+     */
+    private function wordToNumber(string $word): ?int
+    {
+        // Convert camelCase to hyphen-separated words for compound numbers
+        // e.g., "TwentyOne" -> "Twenty-One" -> "twenty-one"
+        // NumberFormatter expects "twenty-one" format, not "twenty one"
+        $hyphenated = preg_replace('/([a-z])([A-Z])/', '$1-$2', $word);
+        $lowered = strtolower($hyphenated ?? $word);
+
+        $formatter = new NumberFormatter('en', NumberFormatter::SPELLOUT);
+        $number = $formatter->parse($lowered);
+
+        return $number !== false ? (int) $number : null;
+    }
+
+    /**
+     * Set schedule to recur every X weeks.
+     *
+     * @param  int<1, 52>  $weeks
+     * @param  array  $days
+     * @param  CarbonInterface|string|null  $startsOn
+     */
+    private function setEveryXWeeksFrequency(int $weeks, array $days, CarbonInterface|string|null $startsOn): self
+    {
+        $this->attributes['is_recurring'] = true;
+        $this->attributes['frequency'] = "every_{$weeks}_weeks";
+        $this->attributes['frequency_config'] = new EveryXWeeksFrequencyConfig(
+            frequencyWeeks: $weeks,
+            days: $days,
+            startsOn: $startsOn,
+        );
+
+        return $this;
+    }
+
+    /**
+     * Set schedule to recur every X months.
+     *
+     * @param  int<1, 12>  $months
+     * @param  array  $config
+     */
+    private function setEveryXMonthsFrequency(int $months, array $config): self
+    {
+        if (array_key_exists('day_of_month', $config) && ! array_key_exists('days_of_month', $config)) {
+            $config['days_of_month'] = [$config['day_of_month']];
+            unset($config['day_of_month']);
+        }
+
+        $this->attributes['is_recurring'] = true;
+        $this->attributes['frequency'] = "every_{$months}_months";
+        $this->attributes['frequency_config'] = new EveryXMonthsFrequencyConfig(
+            frequencyMonths: $months,
+            days_of_month: $config['days_of_month'] ?? null,
+            start_month: $config['start_month'] ?? null,
+        );
+
+        return $this;
     }
 }

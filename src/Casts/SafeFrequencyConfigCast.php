@@ -5,6 +5,8 @@ namespace Zap\Casts;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
 use Zap\Data\FrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\EveryXMonthsFrequencyConfig;
+use Zap\Data\WeeklyFrequencyConfig\EveryXWeeksFrequencyConfig;
 use Zap\Models\Schedule;
 
 class SafeFrequencyConfigCast implements CastsAttributes
@@ -22,6 +24,20 @@ class SafeFrequencyConfigCast implements CastsAttributes
         }
 
         if (is_string($frequency)) {
+            // Handle dynamic weekly frequencies (e.g., "every_3_weeks")
+            if (preg_match('/^every_(\d+)_weeks$/', $frequency, $matches)) {
+                return EveryXWeeksFrequencyConfig::fromArray(
+                    array_merge($configArray, ['frequencyWeeks' => (int) $matches[1]])
+                );
+            }
+
+            // Handle dynamic monthly frequencies (e.g., "every_4_months")
+            if (preg_match('/^every_(\d+)_months$/', $frequency, $matches)) {
+                return EveryXMonthsFrequencyConfig::fromArray(
+                    array_merge($configArray, ['frequencyMonths' => (int) $matches[1]])
+                );
+            }
+
             return $configArray;
         }
 
