@@ -1,15 +1,18 @@
 <?php
 
-namespace Zap\Data;
+namespace Zap\Data\WeeklyFrequencyConfig;
 
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Zap\Data\FrequencyConfig;
 use Zap\Models\Schedule;
 
 /**
  * @property-read list<string> $daysOfWeek
+ *
+ * @phpstan-consistent-constructor
  */
-class BiWeeklyFrequencyConfig extends FrequencyConfig
+abstract class AbstractWeeklyFrequencyConfig extends FrequencyConfig
 {
     public ?CarbonInterface $startsOn = null;
 
@@ -36,7 +39,7 @@ class BiWeeklyFrequencyConfig extends FrequencyConfig
             throw new \InvalidArgumentException("Missing 'days' key in BiWeeklyFrequencyConfig data array.");
         }
 
-        return new self(
+        return new static(
             days: $data['days'],
             startsOn: $data['startsOn'] ?? null,
         );
@@ -58,7 +61,7 @@ class BiWeeklyFrequencyConfig extends FrequencyConfig
     public function shouldCreateInstance(\Carbon\CarbonInterface $date): bool
     {
         return empty($this->days) || in_array(strtolower($date->format('l')), $this->days) &&
-            $this->startsOn->diffInWeeks($date) % 2 === 0;
+            $this->startsOn->diffInWeeks($date) % static::getFrequency() === 0;
     }
 
     public function shouldCreateRecurringInstance(Schedule $schedule, \Carbon\CarbonInterface $date): bool
@@ -78,7 +81,7 @@ class BiWeeklyFrequencyConfig extends FrequencyConfig
         }, $allowedDays);
 
         return in_array($date->dayOfWeek, $allowedDayNumbers) &&
-            $this->startsOn->diffInWeeks($date) % 2 === 0;
+            $this->startsOn->diffInWeeks($date) % static::getFrequency() === 0;
     }
 
     public function getNextRecurrence(\Carbon\CarbonInterface $current): \Carbon\CarbonInterface
@@ -114,15 +117,18 @@ class BiWeeklyFrequencyConfig extends FrequencyConfig
         }, $allowedDays);
 
         // Find the next allowed day
-        while (! in_array($next->dayOfWeek, $allowedDayNumbers) || $this->startsOn->diffInWeeks($next) % 2 !== 0) {
+        while (! in_array($next->dayOfWeek, $allowedDayNumbers) || $this->startsOn->diffInWeeks($next) % static::getFrequency() !== 0) {
             $next = $next->addDay();
 
             // Prevent infinite loop
-            if ($next->diffInDays($current) > 28) {
+            if ($next->diffInDays($current) > static::getFrequency() * 7 * 2) {
                 break;
             }
         }
 
         return $next;
     }
+
+    /** @return int<1, 52> */
+    abstract public static function getFrequency(): int;
 }

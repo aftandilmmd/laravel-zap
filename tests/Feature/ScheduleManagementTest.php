@@ -34,7 +34,7 @@ it('can create recurring weekly schedule', function () {
 
     expect($schedule->is_recurring)->toBeTrue();
     expect($schedule->frequency)->toBe(Frequency::WEEKLY);
-    expect($schedule->frequency_config->toArray())->toBe(['days' => ['monday', 'wednesday', 'friday']]);
+    expect($schedule->frequency_config->toArray()['days'])->toBe(['monday', 'wednesday', 'friday']);
 });
 
 it('detects schedule conflicts', function () {
@@ -333,7 +333,7 @@ it('can handle monthly recurring schedules', function () {
 
     expect($schedule->is_recurring)->toBeTrue();
     expect($schedule->frequency)->toBe(Frequency::MONTHLY);
-    expect($schedule->frequency_config->toArray())->toBe(['days_of_month' => [1]]);
+    expect($schedule->frequency_config->toArray()['days_of_month'])->toBe([1]);
 });
 
 it('can create schedules with extended recurring frequencies', function () {

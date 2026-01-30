@@ -1,34 +1,36 @@
 <?php
 
-namespace Zap\Data;
+namespace Zap\Data\MonthlyFrequencyConfig;
 
-use Carbon\CarbonInterface;
+use Zap\Data\FrequencyConfig;
 use Zap\Models\Schedule;
 
 /**
  * @property-read list<int>|null $daysOfMonth
+ *
+ * @phpstan-consistent-constructor
  */
-class BiMonthlyFrequencyConfig extends FrequencyConfig
+abstract class AbstractMonthlyFrequencyConfig extends FrequencyConfig
 {
     public function __construct(
-        public ?array $days_of_month = [],
-        public ?int $start_month = null,
+        public ?array $days_of_month,
+        public ?int $start_month = null
     ) {}
 
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
         if (array_key_exists('day_of_month', $data) && ! array_key_exists('days_of_month', $data)) {
             $data['days_of_month'] = [$data['day_of_month']];
             unset($data['day_of_month']);
         }
 
-        return new self(
+        return new static(
             days_of_month: $data['days_of_month'],
             start_month: $data['start_month'] ?? null,
         );
     }
 
-    public function setStartFromStartDate(CarbonInterface $startDate): self
+    public function setStartFromStartDate(\Carbon\CarbonInterface $startDate): self
     {
         if ($this->start_month === null) {
             $this->start_month = $startDate->month;
@@ -43,7 +45,7 @@ class BiMonthlyFrequencyConfig extends FrequencyConfig
         if ($current->day >= max($daysOfMonth)) {
             $dayOfMonth = min($daysOfMonth);
 
-            return $current->copy()->addMonths(2)->day($dayOfMonth);
+            return $current->copy()->addMonths($this::getFrequency())->day($dayOfMonth);
         }
         $dayOfMonth = min(array_filter($daysOfMonth, fn ($day) => $day > $current->day));
 
@@ -53,7 +55,7 @@ class BiMonthlyFrequencyConfig extends FrequencyConfig
     public function shouldCreateInstance(\Carbon\CarbonInterface $date): bool
     {
         $daysOfMonth = $this->days_of_month ?? [$date->day];
-        $monthDiff = ($date->month - $this->start_month + 12) % 2;
+        $monthDiff = ($date->month - $this->start_month + 12) % $this::getFrequency();
 
         return in_array($date->day, $daysOfMonth) && $monthDiff === 0;
     }
@@ -61,8 +63,11 @@ class BiMonthlyFrequencyConfig extends FrequencyConfig
     public function shouldCreateRecurringInstance(Schedule $schedule, \Carbon\CarbonInterface $date): bool
     {
         $daysOfMonth = $this->days_of_month ?? [$schedule->start_date->day];
-        $monthDiff = ($date->month - $this->start_month + 12) % 2;
+        $monthDiff = ($date->month - $this->start_month + 12) % $this::getFrequency();
 
         return in_array($date->day, $daysOfMonth) && $monthDiff === 0;
     }
+
+    /** @return int<1, 12> */
+    abstract protected static function getFrequency(): int;
 }

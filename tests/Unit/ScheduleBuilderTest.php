@@ -1,11 +1,11 @@
 <?php
 
 use Zap\Builders\ScheduleBuilder;
-use Zap\Data\AnnuallyFrequencyConfig;
-use Zap\Data\BiMonthlyFrequencyConfig;
-use Zap\Data\BiWeeklyFrequencyConfig;
-use Zap\Data\QuarterlyFrequencyConfig;
-use Zap\Data\SemiAnnuallyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\AnnuallyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\BiMonthlyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\QuarterlyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\SemiAnnuallyFrequencyConfig;
+use Zap\Data\WeeklyFrequencyConfig\BiWeeklyFrequencyConfig;
 use Zap\Enums\Frequency;
 use Zap\Models\Schedule;
 
@@ -73,13 +73,13 @@ describe('ScheduleBuilder', function () {
         $builder->reset();
         $weekly = $builder->for($user)->from('2025-01-01')->weekly(['monday', 'friday'])->build();
         expect($weekly['attributes']['frequency'])->toBe(Frequency::WEEKLY);
-        expect($weekly['attributes']['frequency_config']->toArray())->toBe(['days' => ['monday', 'friday']]);
+        expect($weekly['attributes']['frequency_config']->days)->toBe(['monday', 'friday']);
 
         // Test weekDays (convenience method that combines weekly and addPeriod)
         $builder->reset();
         $weekDays = $builder->for($user)->from('2025-01-01')->weekDays(['monday', 'wednesday', 'friday'], '09:00', '17:00')->build();
         expect($weekDays['attributes']['frequency'])->toBe(Frequency::WEEKLY);
-        expect($weekDays['attributes']['frequency_config']->toArray())->toBe(['days' => ['monday', 'wednesday', 'friday']]);
+        expect($weekDays['attributes']['frequency_config']->days)->toBe(['monday', 'wednesday', 'friday']);
         expect($weekDays['periods'])->toHaveCount(1);
         expect($weekDays['periods'][0])->toMatchArray([
             'start_time' => '09:00',
@@ -91,14 +91,14 @@ describe('ScheduleBuilder', function () {
         $builder->reset();
         $weeklyOdd = $builder->for($user)->from('2025-01-01')->weeklyOdd(['monday', 'wednesday', 'friday'])->build();
         expect($weeklyOdd['attributes']['frequency'])->toBe(Frequency::WEEKLY_ODD);
-        expect($weeklyOdd['attributes']['frequency_config']->toArray())->toBe(['days' => ['monday', 'wednesday', 'friday']]);
+        expect($weeklyOdd['attributes']['frequency_config']->days)->toBe(['monday', 'wednesday', 'friday']);
         expect($weeklyOdd['periods'])->toHaveCount(0);
 
         // Test weekOddDays (convenience method that combines weekly and addPeriod)
         $builder->reset();
         $weekOddDays = $builder->for($user)->from('2025-01-01')->weekOddDays(['monday', 'wednesday', 'friday'], '09:00', '17:00')->build();
         expect($weekOddDays['attributes']['frequency'])->toBe(Frequency::WEEKLY_ODD);
-        expect($weekOddDays['attributes']['frequency_config']->toArray())->toBe(['days' => ['monday', 'wednesday', 'friday']]);
+        expect($weekOddDays['attributes']['frequency_config']->days)->toBe(['monday', 'wednesday', 'friday']);
         expect($weekOddDays['periods'])->toHaveCount(1);
         expect($weekOddDays['periods'][0])->toMatchArray([
             'start_time' => '09:00',
@@ -110,14 +110,14 @@ describe('ScheduleBuilder', function () {
         $builder->reset();
         $weeklyEven = $builder->for($user)->from('2025-01-01')->weeklyEven(['tuesday', 'thursday'])->build();
         expect($weeklyEven['attributes']['frequency'])->toBe(Frequency::WEEKLY_EVEN);
-        expect($weeklyEven['attributes']['frequency_config']->toArray())->toBe(['days' => ['tuesday', 'thursday']]);
+        expect($weeklyEven['attributes']['frequency_config']->days)->toBe(['tuesday', 'thursday']);
         expect($weeklyEven['periods'])->toHaveCount(0);
 
         // Test weekEvenDays (convenience method that combines weekly and addPeriod)
         $builder->reset();
         $weekEvenDays = $builder->for($user)->from('2025-01-01')->weekEvenDays(['tuesday', 'thursday'], '10:00', '16:00')->build();
         expect($weekEvenDays['attributes']['frequency'])->toBe(Frequency::WEEKLY_EVEN);
-        expect($weekEvenDays['attributes']['frequency_config']->toArray())->toBe(['days' => ['tuesday', 'thursday']]);
+        expect($weekEvenDays['attributes']['frequency_config']->days)->toBe(['tuesday', 'thursday']);
         expect($weekEvenDays['periods'])->toHaveCount(1);
         expect($weekEvenDays['periods'][0])->toMatchArray([
             'start_time' => '10:00',
@@ -129,7 +129,7 @@ describe('ScheduleBuilder', function () {
         $builder->reset();
         $monthly = $builder->for($user)->from('2025-01-01')->monthly(['day_of_month' => 15])->build();
         expect($monthly['attributes']['frequency'])->toBe(Frequency::MONTHLY);
-        expect($monthly['attributes']['frequency_config']->toArray())->toBe(['days_of_month' => [15]]);
+        expect($monthly['attributes']['frequency_config']->days_of_month)->toBe([15]);
 
         // Test bi-weekly
         $builder->reset();

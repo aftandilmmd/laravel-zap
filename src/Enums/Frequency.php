@@ -41,15 +41,15 @@ enum Frequency: string
     {
         return match ($this) {
             self::DAILY => \Zap\Data\DailyFrequencyConfig::class,
-            self::WEEKLY => \Zap\Data\WeeklyFrequencyConfig::class,
+            self::WEEKLY => \Zap\Data\WeeklyFrequencyConfig\WeeklyFrequencyConfig::class,
             self::WEEKLY_ODD => \Zap\Data\WeeklyEvenOddFrequencyConfig\WeeklyOddFrequencyConfig::class,
             self::WEEKLY_EVEN => \Zap\Data\WeeklyEvenOddFrequencyConfig\WeeklyEvenFrequencyConfig::class,
-            self::BIWEEKLY => \Zap\Data\BiWeeklyFrequencyConfig::class,
-            self::MONTHLY => \Zap\Data\MonthlyFrequencyConfig::class,
-            self::BIMONTHLY => \Zap\Data\BiMonthlyFrequencyConfig::class,
-            self::QUARTERLY => \Zap\Data\QuarterlyFrequencyConfig::class,
-            self::SEMIANNUALLY => \Zap\Data\SemiAnnuallyFrequencyConfig::class,
-            self::ANNUALLY => \Zap\Data\AnnuallyFrequencyConfig::class,
+            self::BIWEEKLY => \Zap\Data\WeeklyFrequencyConfig\BiWeeklyFrequencyConfig::class,
+            self::MONTHLY => \Zap\Data\MonthlyFrequencyConfig\MonthlyFrequencyConfig::class,
+            self::BIMONTHLY => \Zap\Data\MonthlyFrequencyConfig\BiMonthlyFrequencyConfig::class,
+            self::QUARTERLY => \Zap\Data\MonthlyFrequencyConfig\QuarterlyFrequencyConfig::class,
+            self::SEMIANNUALLY => \Zap\Data\MonthlyFrequencyConfig\SemiAnnuallyFrequencyConfig::class,
+            self::ANNUALLY => \Zap\Data\MonthlyFrequencyConfig\AnnuallyFrequencyConfig::class,
         };
     }
 
