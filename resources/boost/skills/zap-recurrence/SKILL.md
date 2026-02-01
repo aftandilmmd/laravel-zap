@@ -16,6 +16,11 @@ This skill covers all recurrence patterns available in Laravel Zap for creating 
 | `quarterly` | Every three months |
 | `semiannually` | Every six months |
 | `annually` | Once per year |
+| `everyThreeWeeks` | Every three weeks |
+| `everyFourWeeks` | Every four weeks |
+| `everyFiveWeeks` ... `everyFiftyTwoWeeks` | Every N weeks (3-52) |
+| `everyFourMonths` | Every four months |
+| `everyFiveMonths` ... `everyElevenMonths` | Every N months (4, 5, 7-11) |
 
 ## Daily Recurrence
 
@@ -212,6 +217,92 @@ Zap::for($resource)
     ->addPeriod('09:00', '18:00')
     ->save();
 ```
+
+## Dynamic Weekly Frequencies (3-52 weeks)
+
+For frequencies between 3 and 52 weeks, use the dynamic `everyXWeeks` methods:
+
+```php
+// Every three weeks on Monday and Friday
+Zap::for($resource)
+    ->named('Tri-Weekly Sync')
+    ->appointment()
+    ->everyThreeWeeks(['monday', 'friday'])
+    ->from('2025-01-06')
+    ->to('2025-12-31')
+    ->addPeriod('10:00', '11:00')
+    ->save();
+
+// Every four weeks with custom anchor date
+Zap::for($resource)
+    ->named('Monthly-ish Meeting')
+    ->appointment()
+    ->everyFourWeeks(['tuesday'], '2025-01-06') // startsOn anchor
+    ->from('2025-01-13')
+    ->to('2025-12-31')
+    ->addPeriod('14:00', '15:00')
+    ->save();
+
+// Every six weeks
+Zap::for($resource)
+    ->named('Six-Week Review')
+    ->appointment()
+    ->everySixWeeks(['wednesday'])
+    ->forYear(2025)
+    ->addPeriod('09:00', '10:00')
+    ->save();
+
+// Compound numbers work too
+Zap::for($resource)
+    ->named('21-Week Cycle')
+    ->appointment()
+    ->everyTwentyOneWeeks(['monday'])
+    ->forYear(2025)
+    ->addPeriod('10:00', '11:00')
+    ->save();
+```
+
+Available methods: `everyThreeWeeks`, `everyFourWeeks`, `everyFiveWeeks`, ... through `everyFiftyTwoWeeks`.
+
+## Dynamic Monthly Frequencies (4, 5, 7-11 months)
+
+For month frequencies not covered by existing methods (4, 5, 7, 8, 9, 10, 11 months), use the dynamic `everyXMonths` methods:
+
+```php
+// Every four months on the 15th
+Zap::for($resource)
+    ->named('Quadrimester Review')
+    ->appointment()
+    ->everyFourMonths(['day_of_month' => 15])
+    ->forYear(2025)
+    ->addPeriod('09:00', '12:00')
+    ->save();
+
+// Every five months with multiple days and start_month anchor
+Zap::for($resource)
+    ->named('Five-Month Cycle')
+    ->appointment()
+    ->everyFiveMonths([
+        'days_of_month' => [1, 15],
+        'start_month' => 2
+    ])
+    ->forYear(2025)
+    ->addPeriod('10:00', '11:00')
+    ->save();
+
+// Every seven months
+Zap::for($resource)
+    ->named('Seven-Month Audit')
+    ->appointment()
+    ->everySevenMonths(['days_of_month' => [10]])
+    ->forYear(2025)
+    ->addPeriod('14:00', '16:00')
+    ->save();
+```
+
+Available methods: `everyFourMonths`, `everyFiveMonths`, `everySevenMonths`, `everyEightMonths`, `everyNineMonths`, `everyTenMonths`, `everyElevenMonths`.
+
+Note: `everyOneMonth`, `everyTwoMonths`, `everyThreeMonths`, `everySixMonths`, and `everyTwelveMonths` redirect to the existing `monthly()`, `bimonthly()`, `quarterly()`, `semiannually()`, and `annually()` methods respectively.
 
 ## Custom Recurring Frequency
 

@@ -1,14 +1,14 @@
 <?php
 
 use Carbon\Carbon;
-use Zap\Data\AnnuallyFrequencyConfig;
-use Zap\Data\BiMonthlyFrequencyConfig;
-use Zap\Data\BiWeeklyFrequencyConfig;
 use Zap\Data\DailyFrequencyConfig;
-use Zap\Data\MonthlyFrequencyConfig;
-use Zap\Data\QuarterlyFrequencyConfig;
-use Zap\Data\SemiAnnuallyFrequencyConfig;
-use Zap\Data\WeeklyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\AnnuallyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\BiMonthlyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\MonthlyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\QuarterlyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\SemiAnnuallyFrequencyConfig;
+use Zap\Data\WeeklyFrequencyConfig\BiWeeklyFrequencyConfig;
+use Zap\Data\WeeklyFrequencyConfig\WeeklyFrequencyConfig;
 
 describe('FrequencyConfig getNextRecurrence', function () {
 
