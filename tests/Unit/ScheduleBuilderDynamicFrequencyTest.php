@@ -2,6 +2,7 @@
 
 use Zap\Builders\ScheduleBuilder;
 use Zap\Data\MonthlyFrequencyConfig\EveryXMonthsFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\MonthlyOrdinalWeekdayFrequencyConfig;
 use Zap\Data\WeeklyFrequencyConfig\EveryXWeeksFrequencyConfig;
 
 describe('ScheduleBuilder Dynamic Frequency Methods', function () {
@@ -262,6 +263,107 @@ describe('ScheduleBuilder Dynamic Frequency Methods', function () {
             // Thirteen = 13, which is > 12
             expect(fn () => $builder->for($user)->from('2025-01-01')->everyThirteenMonths())
                 ->toThrow(\BadMethodCallException::class, 'Month frequency must be between 1 and 12');
+        });
+
+    });
+
+    describe('Monthly ordinal weekday (first/second/third/fourth/last X of month)', function () {
+
+        it('supports firstWednesdayOfMonth', function () {
+            $user = createUser();
+            $builder = new ScheduleBuilder;
+
+            $built = $builder
+                ->for($user)
+                ->from('2025-01-01')
+                ->firstWednesdayOfMonth()
+                ->build();
+
+            expect($built['attributes']['frequency'])->toBe('monthly_ordinal_weekday');
+            expect($built['attributes']['frequency_config'])->toBeInstanceOf(MonthlyOrdinalWeekdayFrequencyConfig::class);
+            expect($built['attributes']['frequency_config']->getOrdinal())->toBe(1);
+            expect($built['attributes']['frequency_config']->getDayOfWeek())->toBe(3); // Carbon WEDNESDAY
+        });
+
+        it('supports secondFridayOfMonth', function () {
+            $user = createUser();
+            $builder = new ScheduleBuilder;
+
+            $built = $builder
+                ->for($user)
+                ->from('2025-01-01')
+                ->secondFridayOfMonth()
+                ->build();
+
+            expect($built['attributes']['frequency'])->toBe('monthly_ordinal_weekday');
+            expect($built['attributes']['frequency_config']->getOrdinal())->toBe(2);
+            expect($built['attributes']['frequency_config']->getDayOfWeek())->toBe(5); // Carbon FRIDAY
+        });
+
+        it('supports lastMondayOfMonth', function () {
+            $user = createUser();
+            $builder = new ScheduleBuilder;
+
+            $built = $builder
+                ->for($user)
+                ->from('2025-01-01')
+                ->lastMondayOfMonth()
+                ->build();
+
+            expect($built['attributes']['frequency'])->toBe('monthly_ordinal_weekday');
+            expect($built['attributes']['frequency_config']->getOrdinal())->toBe(5); // last
+            expect($built['attributes']['frequency_config']->getDayOfWeek())->toBe(1); // Carbon MONDAY
+        });
+
+        it('supports all ordinal and day combinations via method name', function () {
+            $user = createUser();
+            $builder = new ScheduleBuilder;
+
+            $ordinals = ['first', 'second', 'third', 'fourth', 'last'];
+            $days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+            foreach ($ordinals as $ordinal) {
+                foreach ($days as $day) {
+                    $method = $ordinal.ucfirst($day).'OfMonth';
+                    $built = $builder->reset()->for($user)->from('2025-01-01')->$method()->build();
+                    expect($built['attributes']['frequency'])->toBe('monthly_ordinal_weekday');
+                    expect($built['attributes']['frequency_config'])->toBeInstanceOf(MonthlyOrdinalWeekdayFrequencyConfig::class);
+                }
+            }
+        });
+
+        it('can chain with addPeriod and from', function () {
+            $user = createUser();
+            $builder = new ScheduleBuilder;
+
+            $built = $builder
+                ->for($user)
+                ->from('2025-01-01')
+                ->to('2025-12-31')
+                ->addPeriod('09:00', '10:00')
+                ->firstWednesdayOfMonth()
+                ->build();
+
+            expect($built['attributes']['frequency'])->toBe('monthly_ordinal_weekday');
+            expect($built['attributes']['start_date'])->toBe('2025-01-01');
+            expect($built['attributes']['end_date'])->toBe('2025-12-31');
+            expect($built['periods'])->toHaveCount(1);
+        });
+
+        it('includes ordinal and day_of_week in config toArray', function () {
+            $user = createUser();
+            $builder = new ScheduleBuilder;
+
+            $built = $builder
+                ->for($user)
+                ->from('2025-01-01')
+                ->secondFridayOfMonth()
+                ->build();
+
+            $configArray = $built['attributes']['frequency_config']->toArray();
+
+            expect($configArray)->toHaveKey('ordinal', 2);
+            expect($configArray)->toHaveKey('day_of_week', 5);
         });
 
     });

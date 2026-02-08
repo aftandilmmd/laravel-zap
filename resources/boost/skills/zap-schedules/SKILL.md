@@ -79,6 +79,8 @@ Zap::for($user)
     ->save();
 ```
 
+Recurrence is set via methods such as `daily()`, `weekly(['monday', 'friday'])`, `monthly(['days_of_month' => [1, 15]])`, and **ordinal weekday**: `firstWednesdayOfMonth()`, `secondFridayOfMonth()`, `lastMondayOfMonth()` (see zap-recurrence skill for all patterns).
+
 ## Date Range Methods
 
 ```php

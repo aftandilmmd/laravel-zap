@@ -5,6 +5,7 @@ use Zap\Data\DailyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\AnnuallyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\BiMonthlyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\MonthlyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\MonthlyOrdinalWeekdayFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\QuarterlyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\SemiAnnuallyFrequencyConfig;
 use Zap\Data\WeeklyFrequencyConfig\BiWeeklyFrequencyConfig;
@@ -100,5 +101,90 @@ describe('FrequencyConfig getNextRecurrence', function () {
 
         expect($fromStart->toDateString())->toBe('2025-04-15');  // Next day in same start month
         expect($fromLaterInYear->toDateString())->toBe('2026-04-01'); // Rolls to next year
+    });
+
+    it('advances monthly ordinal weekday (1st Wednesday, 2nd Friday, last Monday)', function () {
+        $firstWed = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 1, 'day_of_week' => 3]);
+        $secondFri = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 2, 'day_of_week' => 5]);
+        $lastMon = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 5, 'day_of_week' => 1]);
+
+        // Jan 2025: 1st Wednesday = Jan 1
+        expect($firstWed->getNextRecurrence(Carbon::parse('2025-01-01'))->toDateString())->toBe('2025-02-05');
+        // Jan 2025: 2nd Friday = Jan 10
+        expect($secondFri->getNextRecurrence(Carbon::parse('2025-01-10'))->toDateString())->toBe('2025-02-14');
+        // Jan 2025: last Monday = Jan 27
+        expect($lastMon->getNextRecurrence(Carbon::parse('2025-01-27'))->toDateString())->toBe('2025-02-24');
+    });
+});
+
+describe('MonthlyOrdinalWeekdayFrequencyConfig', function () {
+
+    it('shouldCreateInstance returns true only on the ordinal weekday', function () {
+        $config = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 1, 'day_of_week' => 3]); // 1st Wednesday
+
+        expect($config->shouldCreateInstance(Carbon::parse('2025-01-01')))->toBeTrue();   // Jan 1 2025 = Wednesday
+        expect($config->shouldCreateInstance(Carbon::parse('2025-01-08')))->toBeFalse();  // 2nd Wednesday
+        expect($config->shouldCreateInstance(Carbon::parse('2025-02-05')))->toBeTrue();  // 1st Wed Feb
+        expect($config->shouldCreateInstance(Carbon::parse('2025-02-04')))->toBeFalse(); // Tuesday
+    });
+
+    it('shouldCreateInstance for second Friday', function () {
+        $config = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 2, 'day_of_week' => 5]);
+
+        expect($config->shouldCreateInstance(Carbon::parse('2025-01-10')))->toBeTrue();  // 2nd Fri Jan 2025
+        expect($config->shouldCreateInstance(Carbon::parse('2025-01-03')))->toBeFalse(); // 1st Fri
+        expect($config->shouldCreateInstance(Carbon::parse('2025-02-14')))->toBeTrue();  // 2nd Fri Feb
+    });
+
+    it('shouldCreateInstance for last Monday', function () {
+        $config = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 5, 'day_of_week' => 1]);
+
+        expect($config->shouldCreateInstance(Carbon::parse('2025-01-27')))->toBeTrue();  // last Mon Jan 2025
+        expect($config->shouldCreateInstance(Carbon::parse('2025-02-24')))->toBeTrue();  // last Mon Feb 2025
+        expect($config->shouldCreateInstance(Carbon::parse('2025-01-20')))->toBeFalse(); // 3rd Mon
+    });
+
+    it('fromArray accepts ordinal string "last"', function () {
+        $config = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 'last', 'day_of_week' => 1]);
+
+        expect($config->getOrdinal())->toBe(5);
+    });
+
+    it('fromArray accepts day name for day_of_week', function () {
+        $config = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 1, 'day' => 'wednesday']);
+
+        expect($config->getDayOfWeek())->toBe(3);
+    });
+
+    it('throws when ordinal is missing', function () {
+        expect(fn () => MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['day_of_week' => 1]))
+            ->toThrow(\InvalidArgumentException::class, 'ordinal');
+    });
+
+    it('throws when day_of_week and day are missing', function () {
+        expect(fn () => MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 1]))
+            ->toThrow(\InvalidArgumentException::class);
+    });
+
+    it('shouldCreateRecurringInstance returns false when date is before schedule start', function () {
+        $config = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 1, 'day_of_week' => 3]);
+        $schedule = new \Zap\Models\Schedule;
+        $schedule->start_date = Carbon::parse('2025-02-01');
+
+        expect($config->shouldCreateRecurringInstance($schedule, Carbon::parse('2025-01-01')))->toBeFalse();
+        expect($config->shouldCreateRecurringInstance($schedule, Carbon::parse('2025-02-05')))->toBeTrue();
+    });
+
+    it('fourth and last differ when month has five occurrences', function () {
+        $fourthFri = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 4, 'day_of_week' => 5]);
+        $lastFri = MonthlyOrdinalWeekdayFrequencyConfig::fromArray(['ordinal' => 5, 'day_of_week' => 5]);
+
+        // March 2025: 4th Friday = Mar 28, last Friday = Mar 28 (only 4 Fridays in March 2025)
+        expect($fourthFri->shouldCreateInstance(Carbon::parse('2025-03-28')))->toBeTrue();
+        expect($lastFri->shouldCreateInstance(Carbon::parse('2025-03-28')))->toBeTrue();
+        // January 2025 has 5 Fridays: 3, 10, 17, 24, 31. 4th = 24th, last = 31st
+        expect($fourthFri->shouldCreateInstance(Carbon::parse('2025-01-24')))->toBeTrue();
+        expect($fourthFri->shouldCreateInstance(Carbon::parse('2025-01-31')))->toBeFalse();
+        expect($lastFri->shouldCreateInstance(Carbon::parse('2025-01-31')))->toBeTrue();
     });
 });

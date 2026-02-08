@@ -13,6 +13,7 @@ use Zap\Data\MonthlyFrequencyConfig\AnnuallyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\BiMonthlyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\EveryXMonthsFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\MonthlyFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\MonthlyOrdinalWeekdayFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\QuarterlyFrequencyConfig;
 use Zap\Data\MonthlyFrequencyConfig\SemiAnnuallyFrequencyConfig;
 use Zap\Data\WeeklyFrequencyConfig\BiWeeklyFrequencyConfig;
@@ -80,6 +81,41 @@ use Zap\Services\ScheduleService;
  * @method self everyNineMonths(array $config = [])
  * @method self everyTenMonths(array $config = [])
  * @method self everyElevenMonths(array $config = [])
+ * @method self firstSundayOfMonth()
+ * @method self firstMondayOfMonth()
+ * @method self firstTuesdayOfMonth()
+ * @method self firstWednesdayOfMonth()
+ * @method self firstThursdayOfMonth()
+ * @method self firstFridayOfMonth()
+ * @method self firstSaturdayOfMonth()
+ * @method self secondSundayOfMonth()
+ * @method self secondMondayOfMonth()
+ * @method self secondTuesdayOfMonth()
+ * @method self secondWednesdayOfMonth()
+ * @method self secondThursdayOfMonth()
+ * @method self secondFridayOfMonth()
+ * @method self secondSaturdayOfMonth()
+ * @method self thirdSundayOfMonth()
+ * @method self thirdMondayOfMonth()
+ * @method self thirdTuesdayOfMonth()
+ * @method self thirdWednesdayOfMonth()
+ * @method self thirdThursdayOfMonth()
+ * @method self thirdFridayOfMonth()
+ * @method self thirdSaturdayOfMonth()
+ * @method self fourthSundayOfMonth()
+ * @method self fourthMondayOfMonth()
+ * @method self fourthTuesdayOfMonth()
+ * @method self fourthWednesdayOfMonth()
+ * @method self fourthThursdayOfMonth()
+ * @method self fourthFridayOfMonth()
+ * @method self fourthSaturdayOfMonth()
+ * @method self lastSundayOfMonth()
+ * @method self lastMondayOfMonth()
+ * @method self lastTuesdayOfMonth()
+ * @method self lastWednesdayOfMonth()
+ * @method self lastThursdayOfMonth()
+ * @method self lastFridayOfMonth()
+ * @method self lastSaturdayOfMonth()
  */
 class ScheduleBuilder
 {
@@ -673,13 +709,20 @@ class ScheduleBuilder
     /**
      * Handle dynamic method calls for everyXWeeks and everyXMonths patterns.
      *
-     * @param  string  $method
      * @param  array<int, mixed>  $parameters
      *
      * @throws BadMethodCallException
      */
     public function __call(string $method, array $parameters): self
     {
+        // Match ordinal weekday of month: firstWednesdayOfMonth, secondFridayOfMonth, lastMondayOfMonth
+        if (preg_match('/^(first|second|third|fourth|last)(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)OfMonth$/i', $method, $ordinalMatches)) {
+            return $this->setMonthlyOrdinalWeekdayFrequency(
+                $ordinalMatches[1],
+                $ordinalMatches[2]
+            );
+        }
+
         // Match patterns like everyThreeWeeks, everyFourMonths, etc.
         if (preg_match('/^every([A-Z][a-zA-Z]+)(Week|Weeks|Month|Months)$/', $method, $matches)) {
             $wordNumber = $matches[1];
@@ -765,8 +808,6 @@ class ScheduleBuilder
      * Set schedule to recur every X weeks.
      *
      * @param  int<1, 52>  $weeks
-     * @param  array  $days
-     * @param  CarbonInterface|string|null  $startsOn
      */
     private function setEveryXWeeksFrequency(int $weeks, array $days, CarbonInterface|string|null $startsOn): self
     {
@@ -782,10 +823,47 @@ class ScheduleBuilder
     }
 
     /**
+     * Set schedule to recur on an ordinal weekday of each month (e.g. 1st Wednesday, last Monday).
+     *
+     * @param  string  $ordinalWord  first, second, third, fourth, last
+     * @param  string  $dayName  Sunday, Monday, ... Saturday
+     */
+    private function setMonthlyOrdinalWeekdayFrequency(string $ordinalWord, string $dayName): self
+    {
+        $ordinal = match (strtolower($ordinalWord)) {
+            'first' => 1,
+            'second' => 2,
+            'third' => 3,
+            'fourth' => 4,
+            'last' => 5,
+            default => throw new BadMethodCallException("Invalid ordinal '{$ordinalWord}' in method."),
+        };
+
+        $dayOfWeek = match (strtolower($dayName)) {
+            'sunday' => 0,
+            'monday' => 1,
+            'tuesday' => 2,
+            'wednesday' => 3,
+            'thursday' => 4,
+            'friday' => 5,
+            'saturday' => 6,
+            default => 1,
+        };
+
+        $this->attributes['is_recurring'] = true;
+        $this->attributes['frequency'] = 'monthly_ordinal_weekday';
+        $this->attributes['frequency_config'] = new MonthlyOrdinalWeekdayFrequencyConfig(
+            ordinal: $ordinal,
+            dayOfWeek: $dayOfWeek,
+        );
+
+        return $this;
+    }
+
+    /**
      * Set schedule to recur every X months.
      *
      * @param  int<1, 12>  $months
-     * @param  array  $config
      */
     private function setEveryXMonthsFrequency(int $months, array $config): self
     {

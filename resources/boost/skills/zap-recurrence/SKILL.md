@@ -21,6 +21,7 @@ This skill covers all recurrence patterns available in Laravel Zap for creating 
 | `everyFiveWeeks` ... `everyFiftyTwoWeeks` | Every N weeks (3-52) |
 | `everyFourMonths` | Every four months |
 | `everyFiveMonths` ... `everyElevenMonths` | Every N months (4, 5, 7-11) |
+| `monthly_ordinal_weekday` | First, second, third, fourth, or last weekday of each month (e.g. `firstWednesdayOfMonth`, `lastMondayOfMonth`) |
 
 ## Daily Recurrence
 
@@ -141,6 +142,41 @@ Zap::for($resource)
     ->addPeriod('14:00', '15:00')
     ->save();
 ```
+
+## Monthly Ordinal Weekday (first / second / third / fourth / last X of month)
+
+Recur on the 1st, 2nd, 3rd, 4th, or **last** occurrence of a given weekday each month. Use method names: `first{Day}OfMonth`, `second{Day}OfMonth`, `third{Day}OfMonth`, `fourth{Day}OfMonth`, `last{Day}OfMonth` with any day name (Sunday through Saturday).
+
+```php
+// Every 1st Wednesday of the month
+Zap::for($resource)
+    ->named('Monthly Standup')
+    ->appointment()
+    ->firstWednesdayOfMonth()
+    ->forYear(2025)
+    ->addPeriod('09:00', '10:00')
+    ->save();
+
+// Every 2nd Friday of the month
+Zap::for($resource)
+    ->named('Bi-Monthly Review')
+    ->appointment()
+    ->secondFridayOfMonth()
+    ->forYear(2025)
+    ->addPeriod('14:00', '15:00')
+    ->save();
+
+// Every last Monday of the month
+Zap::for($resource)
+    ->named('Month-End Retro')
+    ->appointment()
+    ->lastMondayOfMonth()
+    ->forYear(2025)
+    ->addPeriod('16:00', '17:00')
+    ->save();
+```
+
+Available methods (replace `{Day}` with Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday): `first{Day}OfMonth`, `second{Day}OfMonth`, `third{Day}OfMonth`, `fourth{Day}OfMonth`, `last{Day}OfMonth`. Examples: `firstWednesdayOfMonth`, `secondFridayOfMonth`, `lastMondayOfMonth`.
 
 ## Bi-Monthly Recurrence
 
@@ -376,14 +412,23 @@ Zap::for($employee)
 ### Monthly Review Meetings
 
 ```php
-// First Monday of each month (approximate with day 1-7)
+// First Monday of each month (ordinal weekday)
 Zap::for($room)
     ->named('Monthly Review')
     ->appointment()
-    ->monthly(['days_of_month' => [1]])
+    ->firstMondayOfMonth()
     ->forYear(2025)
     ->addPeriod('09:00', '10:00')
     ->withMetadata(['meeting_type' => 'review'])
+    ->save();
+
+// Last Friday of each month (month-end review)
+Zap::for($room)
+    ->named('Month-End Review')
+    ->appointment()
+    ->lastFridayOfMonth()
+    ->forYear(2025)
+    ->addPeriod('14:00', '15:00')
     ->save();
 ```
 

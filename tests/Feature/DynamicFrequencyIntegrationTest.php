@@ -1,6 +1,7 @@
 <?php
 
 use Zap\Data\MonthlyFrequencyConfig\EveryXMonthsFrequencyConfig;
+use Zap\Data\MonthlyFrequencyConfig\MonthlyOrdinalWeekdayFrequencyConfig;
 use Zap\Data\WeeklyFrequencyConfig\EveryXWeeksFrequencyConfig;
 use Zap\Facades\Zap;
 use Zap\Models\Schedule;
@@ -247,6 +248,133 @@ describe('Dynamic Frequency Integration', function () {
 
             // Month 4 (May) - should be true
             expect($config->shouldCreateRecurringInstance($schedule, \Carbon\Carbon::parse('2025-05-15')))->toBeTrue();
+        });
+
+    });
+
+    describe('Monthly ordinal weekday (first/second/last X of month)', function () {
+
+        it('can save and retrieve firstWednesdayOfMonth schedule', function () {
+            $user = createUser();
+
+            $schedule = Zap::for($user)
+                ->named('1st Wednesday Meeting')
+                ->from('2025-01-01')
+                ->to('2025-12-31')
+                ->addPeriod('09:00', '10:00')
+                ->firstWednesdayOfMonth()
+                ->save();
+
+            expect($schedule)->toBeInstanceOf(Schedule::class);
+            expect($schedule->frequency)->toBe('monthly_ordinal_weekday');
+            expect($schedule->frequency_config)->toBeInstanceOf(MonthlyOrdinalWeekdayFrequencyConfig::class);
+            expect($schedule->frequency_config->getOrdinal())->toBe(1);
+            expect($schedule->frequency_config->getDayOfWeek())->toBe(3); // Wednesday
+
+            $retrieved = Schedule::find($schedule->id);
+            expect($retrieved->frequency_config)->toBeInstanceOf(MonthlyOrdinalWeekdayFrequencyConfig::class);
+        });
+
+        it('can save and retrieve secondFridayOfMonth and lastMondayOfMonth', function () {
+            $user = createUser();
+
+            $secondFri = Zap::for($user)
+                ->named('2nd Friday')
+                ->from('2025-01-01')
+                ->addPeriod('14:00', '15:00')
+                ->secondFridayOfMonth()
+                ->save();
+
+            expect($secondFri->frequency)->toBe('monthly_ordinal_weekday');
+            expect($secondFri->frequency_config->getOrdinal())->toBe(2);
+            expect($secondFri->frequency_config->getDayOfWeek())->toBe(5);
+
+            $lastMon = Zap::for($user)
+                ->named('Last Monday')
+                ->from('2025-01-01')
+                ->addPeriod('10:00', '11:00')
+                ->lastMondayOfMonth()
+                ->save();
+
+            expect($lastMon->frequency)->toBe('monthly_ordinal_weekday');
+            expect($lastMon->frequency_config->getOrdinal())->toBe(5);
+            expect($lastMon->frequency_config->getDayOfWeek())->toBe(1);
+        });
+
+        it('correctly reconstructs MonthlyOrdinalWeekdayFrequencyConfig from database', function () {
+            $user = createUser();
+
+            $schedule = Zap::for($user)
+                ->named('Test')
+                ->from('2025-01-01')
+                ->addPeriod('09:00', '10:00')
+                ->firstWednesdayOfMonth()
+                ->save();
+
+            $fresh = Schedule::query()->find($schedule->id);
+
+            expect($fresh->frequency_config)->toBeInstanceOf(MonthlyOrdinalWeekdayFrequencyConfig::class);
+            expect($fresh->frequency_config->getOrdinal())->toBe(1);
+            expect($fresh->frequency_config->getDayOfWeek())->toBe(3);
+        });
+
+        it('blocks time only on 1st Wednesday of each month', function () {
+            $user = createUser();
+
+            Zap::for($user)
+                ->named('1st Wednesday Standup')
+                ->from('2025-01-01')
+                ->to('2025-12-31')
+                ->addPeriod('09:00', '10:00')
+                ->firstWednesdayOfMonth()
+                ->save();
+
+            // Jan 1 2025 = Wednesday = 1st Wednesday
+            expect($user->isAvailableAt('2025-01-01', '09:00', '10:00'))->toBeFalse();
+            // Jan 8 = 2nd Wednesday - should not be blocked
+            expect($user->isAvailableAt('2025-01-08', '09:00', '10:00'))->toBeTrue();
+            // Feb 5 2025 = 1st Wednesday
+            expect($user->isAvailableAt('2025-02-05', '09:00', '10:00'))->toBeFalse();
+            // Feb 4 = Tuesday - available
+            expect($user->isAvailableAt('2025-02-04', '09:00', '10:00'))->toBeTrue();
+        });
+
+        it('blocks time only on 2nd Friday of each month', function () {
+            $user = createUser();
+
+            Zap::for($user)
+                ->named('2nd Friday Review')
+                ->from('2025-01-01')
+                ->to('2025-12-31')
+                ->addPeriod('14:00', '15:00')
+                ->secondFridayOfMonth()
+                ->save();
+
+            // Jan 10 2025 = 2nd Friday
+            expect($user->isAvailableAt('2025-01-10', '14:00', '15:00'))->toBeFalse();
+            // Jan 3 = 1st Friday - available
+            expect($user->isAvailableAt('2025-01-03', '14:00', '15:00'))->toBeTrue();
+            // Feb 14 2025 = 2nd Friday
+            expect($user->isAvailableAt('2025-02-14', '14:00', '15:00'))->toBeFalse();
+        });
+
+        it('blocks time only on last Monday of each month', function () {
+            $user = createUser();
+
+            Zap::for($user)
+                ->named('Last Monday Retro')
+                ->from('2025-01-01')
+                ->to('2025-12-31')
+                ->addPeriod('16:00', '17:00')
+                ->lastMondayOfMonth()
+                ->save();
+
+            // Jan 27 2025 = last Monday of January
+            expect($user->isAvailableAt('2025-01-27', '16:00', '17:00'))->toBeFalse();
+            // Jan 20 = 3rd Monday - available
+            expect($user->isAvailableAt('2025-01-20', '16:00', '17:00'))->toBeTrue();
+            // Feb 24 2025 = last Monday of February
+            expect($user->isAvailableAt('2025-02-24', '16:00', '17:00'))->toBeFalse();
         });
 
     });

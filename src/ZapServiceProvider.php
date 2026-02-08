@@ -3,7 +3,6 @@
 namespace Zap;
 
 use Illuminate\Support\ServiceProvider;
-use Zap\Facades\Zap;
 use Zap\Services\ConflictDetectionService;
 use Zap\Services\ScheduleService;
 use Zap\Services\ValidationService;

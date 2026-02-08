@@ -16,51 +16,46 @@
 
 ---
 
+## Table of contents
+
+- [What is Zap?](#-what-is-zap)
+- [Installation](#-installation)
+- [Core concepts](#-core-concepts)
+- [Quick start](#-quick-start)
+- [Schedule patterns](#-schedule-patterns)
+- [Query & availability](#-query--check-availability)
+- [Real-world examples](#-real-world-examples)
+- [Configuration](#️-configuration)
+- [Advanced](#-advanced-features)
+- [AI agent support](#-ai-agent-support)
+- [Contributing](#-contributing)
+
+---
+
 ## 🎯 What is Zap?
 
-Zap is a comprehensive calendar and scheduling system for Laravel. Manage availabilities, appointments, blocked times, and custom schedules for any resource—doctors, meeting rooms, employees, and more.
+Zap is a calendar and scheduling package for Laravel. Define **availabilities**, **appointments**, **blocked times**, and **custom schedules** for any resource (doctors, rooms, employees, etc.).
 
-**Perfect for:**
-- 📅 Appointment booking systems
-- 🏥 Healthcare resource management
-- 👔 Employee shift scheduling
-- 🏢 Shared office space bookings
+**Use cases:** appointment booking, healthcare resources, employee shifts, shared space booking.
 
 ---
 
 ## 📦 Installation
 
-**Requirements:** PHP ≤8.5 • Laravel ≤12.0
-
-You can install the package via composer:
+**Requirements:** PHP ≥8.5 • Laravel ≥12.0
 
 ```bash
 composer require laraveljutsu/zap
-```
-
-You should publish the migration and the `config/zap.php` config file with:
-
-```bash
 php artisan vendor:publish --provider="Zap\ZapServiceProvider"
 ```
 
-### Before Running Migrations
-
-**If you are USING UUIDs**, see the [Custom Model Support](#custom-model-support) section of the docs on UUID steps, before you continue. It explains some changes you may want to make to the migrations and config file before continuing. It also mentions important considerations after extending this package's models for UUID capability.
-
-If so, run the migration command:
+**UUIDs/ULIDs:** If your app uses non-integer primary keys, read [Custom model support](#custom-model-support) *before* migrating. You may need to change migrations and config.
 
 ```bash
 php artisan migrate
 ```
 
-### Note for Apps Using UUIDs/ULIDs/GUIDs
-
-This package expects the primary key of your models to be an auto-incrementing int. If it is not, you may need to modify the `create_schedules_table` and `create_schedule_periods_table` migration and/or modify the default configuration. See [Custom Model Support](#custom-model-support) for more information.
-
-### Setup Your Models
-
-Add the `HasSchedules` trait to any Eloquent model you want to make schedulable:
+**Make a model schedulable:** add the `HasSchedules` trait.
 
 ```php
 use Zap\Models\Concerns\HasSchedules;
@@ -73,27 +68,23 @@ class Doctor extends Model
 
 ---
 
-## 🧩 Core Concepts
+## 🧩 Core concepts
 
-Zap uses four schedule types to model different scenarios:
-
-| Type | Purpose | Overlap Behavior |
-|------|---------|------------------|
-| **Availability** | Define when resources can be booked | ✅ Allows overlaps |
-| **Appointment** | Actual bookings or scheduled events | ❌ Prevents overlaps |
-| **Blocked** | Periods where booking is forbidden | ❌ Prevents overlaps |
-| **Custom** | Neutral schedules with explicit rules | ⚙️ You define the rules |
+| Type            | Purpose                          | Overlaps      |
+|-----------------|----------------------------------|---------------|
+| **Availability** | When a resource can be booked    | Allowed       |
+| **Appointment**  | Bookings / scheduled events      | Prevented     |
+| **Blocked**      | When booking is forbidden        | Prevented     |
+| **Custom**       | Your rules (overlap, etc.)       | You define    |
 
 ---
 
-## 🚀 Quick Start
-
-Here's a complete example of setting up a doctor's schedule:
+## 🚀 Quick start
 
 ```php
 use Zap\Facades\Zap;
 
-// 1️⃣ Define working hours
+// 1. Working hours
 Zap::for($doctor)
     ->named('Office Hours')
     ->availability()
@@ -103,7 +94,7 @@ Zap::for($doctor)
     ->weekly(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])
     ->save();
 
-// 2️⃣ Block lunch break
+// 2. Block lunch
 Zap::for($doctor)
     ->named('Lunch Break')
     ->blocked()
@@ -112,7 +103,7 @@ Zap::for($doctor)
     ->weekly(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])
     ->save();
 
-// 3️⃣ Create an appointment
+// 3. Create an appointment
 Zap::for($doctor)
     ->named('Patient A - Consultation')
     ->appointment()
@@ -121,401 +112,220 @@ Zap::for($doctor)
     ->withMetadata(['patient_id' => 1, 'type' => 'consultation'])
     ->save();
 
-// 4️⃣ Get bookable slots (60 min slots, 15 min buffer)
+// 4. Get bookable slots (60 min, 15 min buffer)
 $slots = $doctor->getBookableSlots('2025-01-15', 60, 15);
-// Returns: [['start_time' => '09:00', 'end_time' => '10:00', 'is_available' => true, ...], ...]
 
-// 5️⃣ Find next available slot
+// 5. Next available slot
 $nextSlot = $doctor->getNextBookableSlot('2025-01-15', 60, 15);
 ```
 
-> 💡 **Tip:** You can also use the `zap()` helper function instead of the facade: `zap()->for($doctor)->...` (no import needed)
+> 💡 Use the `zap()` helper instead of the facade when you prefer: `zap()->for($doctor)->...`
 
 ---
 
-## 📅 Schedule Patterns
+## 📅 Schedule patterns
 
-### Recurrence Patterns
+### Recurrence at a glance
 
-Zap supports various recurrence patterns for flexible scheduling:
+| Pattern              | Method / example |
+|----------------------|------------------|
+| Daily                | `daily()` |
+| Weekly (days)        | `weekly(['monday', 'friday'])` |
+| Weekly + period      | `weekDays(['monday', 'friday'], '09:00', '17:00')` |
+| Odd/even weeks       | `weeklyOdd()`, `weeklyEven()` (+ `weekOddDays` / `weekEvenDays`) |
+| Bi-weekly            | `biweekly(['tuesday'], $startsOn?)` |
+| Monthly (dates)      | `monthly(['days_of_month' => [1, 15]])` |
+| Bi-monthly / quarter / semi / annual | `bimonthly()`, `quarterly()`, `semiannually()`, `annually()` + config |
+| **Ordinal weekday**  | `firstWednesdayOfMonth()`, `secondFridayOfMonth()`, `lastMondayOfMonth()` |
+| Every N weeks        | `everyThreeWeeks()`, … `everyFiftyTwoWeeks()` |
+| Every N months       | `everyFourMonths()`, … `everyElevenMonths()` |
+
+### Recurrence examples
+
+**Daily & weekly**
 
 ```php
-// Daily
 $schedule->daily()->from('2025-01-01')->to('2025-12-31');
-
-// Weekly (specific days)
 $schedule->weekly(['monday', 'wednesday', 'friday'])->forYear(2025);
-
-// Weekly with time period (convenience method)
 $schedule->weekDays(['monday', 'wednesday', 'friday'], '09:00', '17:00')->forYear(2025);
-
-// Weekly odd (runs only on odd-numbered weeks)
 $schedule->weeklyOdd(['monday', 'wednesday', 'friday'])->forYear(2025);
-
-// Weekly odd with time period (convenience method)
-$schedule->weekOddDays(['monday', 'wednesday', 'friday'], '09:00', '17:00')->forYear(2025);
-
-// Weekly even (runs only on even-numbered weeks)
 $schedule->weeklyEven(['monday', 'wednesday', 'friday'])->forYear(2025);
+$schedule->biweekly(['tuesday', 'thursday'], '2025-01-07')->from('2025-01-07')->to('2025-03-31');
+```
 
-// Weekly even with time period (convenience method)
-$schedule->weekEvenDays(['monday', 'wednesday', 'friday'], '09:00', '17:00')->forYear(2025);
+**Monthly (by day of month)**
 
-// Bi-weekly (week of the start date by default, optional anchor)
-$schedule->biweekly(['tuesday', 'thursday'])->from('2025-01-07')->to('2025-03-31');
-
-// Monthly (supports multiple days)
+```php
 $schedule->monthly(['days_of_month' => [1, 15]])->forYear(2025);
+$schedule->bimonthly(['days_of_month' => [5, 20], 'start_month' => 2])->from('2025-01-05')->to('2025-06-30');
+$schedule->quarterly(['days_of_month' => [7, 21], 'start_month' => 2])->from('2025-02-15')->to('2025-11-15');
+$schedule->semiannually(['days_of_month' => [10], 'start_month' => 3])->from('2025-03-10')->to('2025-12-10');
+$schedule->annually(['days_of_month' => [1, 15], 'start_month' => 4])->from('2025-04-01')->to('2026-04-01');
+```
 
-// Bi-monthly (multiple days, optional start_month anchor)
-$schedule->bimonthly(['days_of_month' => [5, 20], 'start_month' => 2])
-    ->from('2025-01-05')->to('2025-06-30');
+**Monthly ordinal weekday** (1st, 2nd, 3rd, 4th, or last weekday of the month)
 
-// Quarterly (multiple days, optional start_month anchor)
-$schedule->quarterly(['days_of_month' => [7, 21], 'start_month' => 2])
-    ->from('2025-02-15')->to('2025-11-15');
+```php
+$schedule->firstWednesdayOfMonth()->forYear(2025);   // Every 1st Wednesday
+$schedule->secondFridayOfMonth()->forYear(2025);     // Every 2nd Friday
+$schedule->lastMondayOfMonth()->forYear(2025);      // Every last Monday
+// Also: thirdTuesdayOfMonth(), fourthSaturdayOfMonth(), lastSundayOfMonth(), etc.
+```
 
-// Semi-annually (multiple days, optional start_month anchor)
-$schedule->semiannually(['days_of_month' => [10], 'start_month' => 3])
-    ->from('2025-03-10')->to('2025-12-10');
+**Dynamic intervals**
 
-// Annually (multiple days, optional start_month anchor)
-$schedule->annually(['days_of_month' => [1, 15], 'start_month' => 4])
-    ->from('2025-04-01')->to('2026-04-01');
-
-// Dynamic weekly frequencies (3-52 weeks)
+```php
 $schedule->everyThreeWeeks(['monday', 'friday'])->from('2025-01-06')->to('2025-12-31');
-$schedule->everyFourWeeks(['tuesday'], '2025-01-06')->from('2025-01-13'); // with startsOn anchor
-$schedule->everySixWeeks(['wednesday'])->forYear(2025);
-
-// Dynamic monthly frequencies (4, 5, 7-11 months)
+$schedule->everyFourWeeks(['tuesday'], '2025-01-06')->from('2025-01-13');
 $schedule->everyFourMonths(['day_of_month' => 15])->forYear(2025);
 $schedule->everyFiveMonths(['days_of_month' => [1, 15], 'start_month' => 2])->forYear(2025);
 ```
 
-### Date Ranges
-
-Specify when schedules are active:
+### Date ranges
 
 ```php
-$schedule->from('2025-01-15');                          // Single date
-$schedule->on('2025-01-15');                            // Alias for from()
-$schedule->from('2025-01-01')->to('2025-12-31');        // Date range
-$schedule->between('2025-01-01', '2025-12-31');         // Alternative syntax
-$schedule->forYear(2025);                               // Entire year shortcut
+$schedule->from('2025-01-15');                           // Start
+$schedule->on('2025-01-15');                             // Alias for from()
+$schedule->from('2025-01-01')->to('2025-12-31');        // Range
+$schedule->between('2025-01-01', '2025-12-31');          // Same
+$schedule->forYear(2025);                                // Full year
 ```
 
-### Time Periods
-
-Define working hours and time slots:
+### Time periods
 
 ```php
-// Single period
 $schedule->addPeriod('09:00', '17:00');
-
-// Multiple periods (split shifts)
 $schedule->addPeriod('09:00', '12:00');
 $schedule->addPeriod('14:00', '17:00');
 ```
 
 ---
 
-## 🔍 Query & Check Availability
+## 🔍 Query & check availability
 
-Check availability and query schedules:
+| Need                     | Method |
+|--------------------------|--------|
+| Any bookable slot today? | `$model->isBookableAt('2025-01-15', 60)` |
+| Time range bookable?     | `$model->isBookableAtTime('2025-01-15', '09:00', '09:30')` |
+| List bookable slots      | `$model->getBookableSlots('2025-01-15', 60, 15)` |
+| Next bookable slot       | `$model->getNextBookableSlot('2025-01-15', 60, 15)` |
+| Conflicts for a schedule | `Zap::findConflicts($schedule)` / `Zap::hasConflicts($schedule)` |
+| Schedules on a date      | `$model->schedulesForDate('2025-01-15')->get()` |
+| Schedules in range       | `$model->schedulesForDateRange('2025-01-01', '2025-01-31')->get()` |
+| By type                  | `$model->appointmentSchedules()`, `availabilitySchedules()`, `blockedSchedules()` |
+| Schedule type checks     | `$schedule->isAvailability()`, `isAppointment()`, `isBlocked()` |
 
-```php
-// Check if there is at least one bookable slot on the day
-$isBookable = $doctor->isBookableAt('2025-01-15', 60);
-
-// Check if a specific time range is bookable
-$isBookable = $doctor->isBookableAtTime('2025-01-15', '9:00', '9:30');
-
-// Get bookable slots
-$slots = $doctor->getBookableSlots('2025-01-15', 60, 15);
-
-// Find conflicts
-$conflicts = Zap::findConflicts($schedule);
-$hasConflicts = Zap::hasConflicts($schedule);
-
-// Query schedules
-$doctor->schedulesForDate('2025-01-15')->get();
-$doctor->schedulesForDateRange('2025-01-01', '2025-01-31')->get();
-
-// Filter by type
-$doctor->appointmentSchedules()->get();
-$doctor->availabilitySchedules()->get();
-$doctor->blockedSchedules()->get();
-
-// Check schedule type
-$schedule->isAvailability();
-$schedule->isAppointment();
-$schedule->isBlocked();
-```
-
-> ⚠️ **Note:** `isAvailableAt()` is deprecated in favor of `isBookableAt()`, `isBookableAtTime()`, and `getBookableSlots()`. Use the bookable APIs for all new code.
+> ⚠️ `isAvailableAt()` is deprecated. Prefer `isBookableAt()`, `isBookableAtTime()`, and `getBookableSlots()`.
 
 ---
 
-## 💼 Real-World Examples
+## 💼 Real-world examples
 
-### 🏥 Doctor Appointment System
+### Doctor
 
 ```php
-// Office hours
-Zap::for($doctor)
-    ->named('Office Hours')
-    ->availability()
-    ->forYear(2025)
-    ->weekly(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])
-    ->addPeriod('09:00', '12:00')
-    ->addPeriod('14:00', '17:00')
-    ->save();
+Zap::for($doctor)->named('Office Hours')->availability()->forYear(2025)
+    ->addPeriod('09:00', '12:00')->addPeriod('14:00', '17:00')
+    ->weekly(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])->save();
 
-// Lunch break
-Zap::for($doctor)
-    ->named('Lunch Break')
-    ->blocked()
-    ->forYear(2025)
-    ->weekly(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])
+Zap::for($doctor)->named('Lunch Break')->blocked()->forYear(2025)
     ->addPeriod('12:00', '13:00')
-    ->save();
+    ->weekly(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])->save();
 
-// Book appointment
-Zap::for($doctor)
-    ->named('Patient A - Checkup')
-    ->appointment()
-    ->from('2025-01-15')
-    ->addPeriod('10:00', '11:00')
-    ->withMetadata(['patient_id' => 1])
-    ->save();
+Zap::for($doctor)->named('Patient A - Checkup')->appointment()
+    ->from('2025-01-15')->addPeriod('10:00', '11:00')->withMetadata(['patient_id' => 1])->save();
 
-// Get available slots
 $slots = $doctor->getBookableSlots('2025-01-15', 60, 15);
 ```
 
-### 🏢 Meeting Room Booking
+### Meeting room
 
 ```php
-// Room availability (using weekDays convenience method)
-Zap::for($room)
-    ->named('Conference Room A')
-    ->availability()
+Zap::for($room)->named('Conference Room A')->availability()
     ->weekDays(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], '08:00', '18:00')
-    ->forYear(2025)
-    ->save();
+    ->forYear(2025)->save();
 
-// Book meeting
-Zap::for($room)
-    ->named('Board Meeting')
-    ->appointment()
-    ->from('2025-03-15')
-    ->addPeriod('09:00', '11:00')
-    ->withMetadata(['organizer' => 'john@company.com'])
-    ->save();
+Zap::for($room)->named('Board Meeting')->appointment()
+    ->from('2025-03-15')->addPeriod('09:00', '11:00')
+    ->withMetadata(['organizer' => 'john@company.com'])->save();
 ```
 
-### 👔 Employee Shift Management
+### Employee (with vacation)
 
 ```php
-// Regular schedule (using weekDays convenience method)
-Zap::for($employee)
-    ->named('Regular Shift')
-    ->availability()
+Zap::for($employee)->named('Regular Shift')->availability()
     ->weekDays(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], '09:00', '17:00')
-    ->forYear(2025)
-    ->save();
+    ->forYear(2025)->save();
 
-// Vacation
-Zap::for($employee)
-    ->named('Vacation Leave')
-    ->blocked()
-    ->between('2025-06-01', '2025-06-15')
-    ->addPeriod('00:00', '23:59')
-    ->save();
+Zap::for($employee)->named('Vacation Leave')->blocked()
+    ->between('2025-06-01', '2025-06-15')->addPeriod('00:00', '23:59')->save();
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-Publish the migration:
+Publish assets:
 
 ```bash
 php artisan vendor:publish --tag=zap-migrations
-```
-
-Publish and customize the configuration:
-
-```bash
 php artisan vendor:publish --tag=zap-config
 ```
 
-Key settings in `config/zap.php`:
-
-```php
-'time_slots' => [
-    'buffer_minutes' => 0,  // Default buffer between slots
-],
-
-'default_rules' => [
-    'no_overlap' => [
-        'enabled' => true,
-        'applies_to' => ['appointment', 'blocked'],
-    ],
-],
-```
+Important keys in `config/zap.php`: `time_slots.buffer_minutes`, `default_rules.no_overlap`, `conflict_detection`, `validation`.
 
 ---
 
-## 🛡️ Advanced Features
+## 🛡️ Advanced features
 
-### Custom Schedules with Explicit Rules
-
-Create custom schedules with explicit overlap rules:
+**Custom schedules & rules**
 
 ```php
-Zap::for($user)
-    ->named('Custom Event')
-    ->custom()
-    ->from('2025-01-15')
-    ->addPeriod('15:00', '16:00')
-    ->noOverlap()  // Explicitly prevent overlaps
-    ->save();
+Zap::for($user)->named('Custom Event')->custom()
+    ->from('2025-01-15')->addPeriod('15:00', '16:00')->noOverlap()->save();
 ```
 
-### Metadata Support
-
-Attach custom metadata to schedules:
+**Metadata**
 
 ```php
-->withMetadata([
-    'patient_id' => 1,
-    'type' => 'consultation',
-    'notes' => 'Follow-up required'
-])
+->withMetadata(['patient_id' => 1, 'type' => 'consultation', 'notes' => 'Follow-up'])
 ```
 
-### Custom Model Support
+**Validation rules:** `noOverlap()`, `allowOverlap()`, `workingHoursOnly('09:00', '17:00')`, `maxDuration(120)`, `noWeekends()`.
 
-If you're using UUIDs (ULID, GUID, etc) for your `User` models or `Schedule` / `SchedulePeriod` models there are a few considerations to note.
+### Custom model support (UUIDs)
 
-Since each UUID implementation approach is different, some of these may or may not benefit you. As always, your implementation may vary.
+If your app uses **UUIDs/ULIDs** for primary keys:
 
-We use "uuid" in the examples below. Adapt for ULID or GUID as needed.
+1. **Models** — Extend `Zap\Models\Schedule` and `Zap\Models\SchedulePeriod`, add Laravel’s `HasUuids` trait. Add `HasUuids` to your schedulable model (e.g. `Doctor`) as well.
+2. **Config** — In `config/zap.php`, set `models.schedule` and `models.schedule_period` to your extended classes.
+3. **Migrations** — After publishing, change `id()` to `uuid('id')->primary()`, `morphs('schedulable')` to `uuidMorphs('schedulable')`, and `foreignId('schedule_id')` to `foreignUuid('schedule_id')` in the schedules and schedule_periods tables.
 
-#### Models
-
-If you want all the schedule objects to have a UUID instead of an integer, you will need to extend the default `Zap\Models\Schedule` and `Zap\Models\SchedulePeriod` models into your own namespace in order to set some specific properties.
-
-Create new models, which extend the `Zap\Models\Schedule` and `Zap\Models\SchedulePeriod` models of this package, and add Laravel's `HasUuids` trait (available since Laravel 9):
-
-```bash
-php artisan make:model Schedule
-php artisan make:model SchedulePeriod
-```
-
-```php
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Zap\Models\Schedule as Model;
-
-class Schedule extends Model
-{
-    use HasUuids;
-}
-```
-
-```php
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Zap\Models\SchedulePeriod as Model;
-
-class SchedulePeriod extends Model
-{
-    use HasUuids;
-}
-```
-
-Add `HasUuids` trait to schedulable Eloquent model:
-
-```php
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Zap\Models\Concerns\HasSchedules;
-
-class Doctor extends Model
-{
-    use HasSchedules, HasUuids;
-}
-```
-
-#### Configuration
-
-Update config/zap.php:
-
-```diff
-// config/zap.php
-
-'models' => [
--   'schedule' => \Zap\Models\Schedule::class,
-+   'schedule' => \App\Models\Schedule::class,
-
--   'schedule_period' => \Zap\Models\SchedulePeriod::class,
-+   'schedule_period' => \App\Models\SchedulePeriod::class,
-],
-```
-
-#### Migrations
-
-You will need to update the `create_schedules_table` and `create_schedule_periods_table` migration after creating it with `php artisan vendor:publish`. After making your edits, be sure to run the migration.
-
-```diff
-// database/migrations/**_create_schedules_table.php
-
-- $table->id();
-+ $table->uuid('id')->primary();
-- $table->morphs('schedulable');
-+ $table->uuidMorphs('schedulable');
-
-// database/migrations/**_create_schedule_periods_table.php
-
-- $table->id();
-+ $table->uuid('id')->primary();
-- $table->foreignId('schedule_id')->constrained()->cascadeOnDelete();
-+ $table->foreignUuid('schedule_id')->constrained()->cascadeOnDelete();
-```
+Do this *before* running migrations.
 
 ---
 
-## 🧠 AI Agent Support
+## 🧠 AI agent support
 
-Laravel Zap ships with native [Laravel Boost](https://laravel.com/ai/boost) 2.0 Skills. When both packages are installed, Boost auto-discovers Zap's skills—giving AI agents accurate knowledge of the scheduling API.
+Zap provides [Laravel Boost](https://laravel.com/ai/boost) 2.0 skills. With Boost installed, agents get accurate knowledge of the API.
 
-| Skill | What it covers |
-|-------|----------------|
-| `zap-schedules` | Schedule types, fluent builder API, validation rules, conflict detection |
-| `zap-availability` | Bookable slots, availability checks, querying schedules |
-| `zap-recurrence` | All recurrence patterns (daily, weekly, odd/even weeks, monthly, and more) |
+| Skill             | Contents |
+|-------------------|----------|
+| `zap-schedules`   | Types, builder API, validation, conflict detection |
+| `zap-availability` | Bookable slots, availability checks, querying |
+| `zap-recurrence`  | All recurrence patterns (daily, weekly, odd/even, monthly, ordinal weekday, dynamic) |
 
-No configuration needed—just install both packages and your AI assistant understands Zap.
+No extra configuration.
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Follow PSR-12 coding standards and include tests.
+Contributions are welcome. Use PSR-12 and add tests.
 
 ```bash
 git clone https://github.com/ludoguenet/laravel-zap.git
-
 cd laravel-zap
-
 composer install
 composer pest
 ```
@@ -524,11 +334,11 @@ composer pest
 
 ## 📄 License
 
-Open-source software licensed under the [MIT License](LICENSE).
+[MIT License](LICENSE).
 
 ## 🔒 Security
 
-Report vulnerabilities to **ludo@epekta.com** (please don't use the issue tracker).
+Report issues to **ludo@epekta.com** (not the public issue tracker).
 
 ---
 

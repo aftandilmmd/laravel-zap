@@ -133,6 +133,15 @@ class ScheduleBuilder extends Builder
                                 $m->whereJsonContains('frequency_config->days_of_month', $dayOfMonth)
                                     ->orWhere('frequency_config->days_of_month', $dayOfMonth);
                             });
+                    })
+
+                    //
+                    // 6️⃣ MONTHLY ORDINAL WEEKDAY — match day_of_week; ordinal filtered by shouldCreateRecurringInstance
+                    //
+                    ->orWhere(function ($ordinalWeekday) use ($checkDate) {
+                        $ordinalWeekday->where('is_recurring', true)
+                            ->where('frequency', 'monthly_ordinal_weekday')
+                            ->where('frequency_config->day_of_week', $checkDate->dayOfWeek);
                     });
             });
     }
