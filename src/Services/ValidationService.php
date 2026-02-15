@@ -5,6 +5,7 @@ namespace Zap\Services;
 use Illuminate\Database\Eloquent\Model;
 use Zap\Enums\Frequency;
 use Zap\Exceptions\InvalidScheduleException;
+use Zap\Helper\TimeHelper;
 
 class ValidationService
 {
@@ -159,20 +160,16 @@ class ValidationService
             $errors["{$prefix}.end_time"] = "Invalid end time format '{$period['end_time']}'. Please use HH:MM format (e.g., 17:30)";
         }
 
-        // End time must be after start time
+        // Validate times and duration (overnight-aware)
         if (! empty($period['start_time']) && ! empty($period['end_time'])) {
-            $baseDate = '2024-01-01'; // Use a consistent base date for time parsing
-            $start = \Carbon\Carbon::parse($baseDate.' '.$period['start_time']);
-            $end = \Carbon\Carbon::parse($baseDate.' '.$period['end_time']);
-
-            if ($end->lte($start)) {
-                $errors["{$prefix}.end_time"] = "End time ({$period['end_time']}) must be after start time ({$period['start_time']})";
+            // start_time == end_time is invalid (zero duration)
+            if ($period['start_time'] === $period['end_time']) {
+                $errors["{$prefix}.end_time"] = "End time ({$period['end_time']}) must be different from start time ({$period['start_time']})";
             }
 
-            // Duration validation
+            // Duration validation (overnight-aware)
             if (config('zap.default_rules.max_duration.enabled')) {
-                // Duration validation
-                $duration = $start->diffInMinutes($end);
+                $duration = TimeHelper::durationInMinutes($period['start_time'], $period['end_time']);
 
                 $maxDuration = config('zap.default_rules.max_duration.minutes', 480);
                 $minDuration = config('zap.validation.min_period_duration', 15);
@@ -228,7 +225,7 @@ class ValidationService
     }
 
     /**
-     * Check if two periods overlap.
+     * Check if two periods overlap (overnight-aware).
      */
     protected function periodsOverlap(array $period1, array $period2): bool
     {
@@ -239,13 +236,10 @@ class ValidationService
             return false;
         }
 
-        $baseDate = '2024-01-01'; // Use a consistent base date for time parsing
-        $start1 = \Carbon\Carbon::parse($baseDate.' '.$period1['start_time']);
-        $end1 = \Carbon\Carbon::parse($baseDate.' '.$period1['end_time']);
-        $start2 = \Carbon\Carbon::parse($baseDate.' '.$period2['start_time']);
-        $end2 = \Carbon\Carbon::parse($baseDate.' '.$period2['end_time']);
-
-        return $start1 < $end2 && $end1 > $start2;
+        return TimeHelper::periodsOverlap(
+            $period1['start_time'], $period1['end_time'],
+            $period2['start_time'], $period2['end_time']
+        );
     }
 
     /**
@@ -467,7 +461,7 @@ class ValidationService
     }
 
     /**
-     * Validate maximum duration rule.
+     * Validate maximum duration rule (overnight-aware).
      */
     protected function validateMaxDuration($config, array $periods): array
     {
@@ -483,10 +477,7 @@ class ValidationService
                 continue;
             }
 
-            $baseDate = '2024-01-01'; // Use a consistent base date for time parsing
-            $start = \Carbon\Carbon::parse($baseDate.' '.$period['start_time']);
-            $end = \Carbon\Carbon::parse($baseDate.' '.$period['end_time']);
-            $duration = $start->diffInMinutes($end);
+            $duration = TimeHelper::durationInMinutes($period['start_time'], $period['end_time']);
 
             if ($duration > $maxMinutes) {
                 $hours = round($duration / 60, 1);

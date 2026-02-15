@@ -41,12 +41,23 @@ test('"end time before start time" validation passed successfully', function () 
         ->save();
 })->throwsNoExceptions();
 
-test('"end time before start time" validation failed successfully', function () {
-    Zap::for(createUser())
+test('"end time before start time" is treated as overnight period', function () {
+    // 10:00→09:00 is a valid 23-hour overnight period
+    $schedule = Zap::for(createUser())
         ->from(today()->addDay()->toDateString())
         ->addPeriod('10:00', '09:00')
         ->save();
-})->throws(InvalidScheduleException::class, "Schedule validation failed with 1 error:\n• periods.0.end_time: End time (09:00) must be after start time (10:00)");
+
+    expect($schedule->periods->first()->duration_minutes)->toBe(1380); // 23 hours
+    expect($schedule->periods->first()->isOvernight())->toBeTrue();
+})->throwsNoExceptions();
+
+test('"same start and end time" validation fails', function () {
+    Zap::for(createUser())
+        ->from(today()->addDay()->toDateString())
+        ->addPeriod('10:00', '10:00')
+        ->save();
+})->throws(InvalidScheduleException::class);
 
 test('"period too short" validation passed successfully', function () {
     config([

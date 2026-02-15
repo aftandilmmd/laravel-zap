@@ -209,10 +209,12 @@ describe('Recurring Schedule Availability', function () {
         // Expected queries:
         // 1. Availability schedules query
         // 2. Availability periods eager load query
-        // 3. Blocking schedules query
-        // 4. Blocking periods eager load query
-        // Total: 4 queries (2 for each schedule type with eager loading)
-        expect(count($queries))->toBeLessThanOrEqual(4);
+        // 3. Previous day availability (overnight overflow) query
+        // 4. Previous day availability periods eager load query
+        // 5. Blocking schedules query
+        // 6. Blocking periods eager load query
+        // Total: 6 queries (overnight-aware lookups add 2 extra)
+        expect(count($queries))->toBeLessThanOrEqual(6);
     });
 
     it('getNextBookableSlot works correctly with recurring schedules', function () {

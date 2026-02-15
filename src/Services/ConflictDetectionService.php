@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Zap\Data\FrequencyConfig;
 use Zap\Enums\ScheduleTypes;
+use Zap\Helper\TimeHelper;
 
 class ConflictDetectionService
 {
@@ -167,7 +168,7 @@ class ConflictDetectionService
     }
 
     /**
-     * Check if two specific periods overlap.
+     * Check if two specific periods overlap (overnight-aware).
      */
     protected function periodPairOverlaps(
         \Zap\Models\SchedulePeriod $period1,
@@ -179,18 +180,11 @@ class ConflictDetectionService
             return false;
         }
 
-        $start1 = $this->parseTime($period1->start_time);
-        $end1 = $this->parseTime($period1->end_time);
-        $start2 = $this->parseTime($period2->start_time);
-        $end2 = $this->parseTime($period2->end_time);
-
-        // Apply buffer
-        if ($bufferMinutes > 0) {
-            $start1->subMinutes($bufferMinutes);
-            $end1->addMinutes($bufferMinutes);
-        }
-
-        return $start1 < $end2 && $end1 > $start2;
+        return TimeHelper::periodsOverlapWithBuffer(
+            $period1->start_time, $period1->end_time,
+            $period2->start_time, $period2->end_time,
+            $bufferMinutes
+        );
     }
 
     /**

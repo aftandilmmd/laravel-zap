@@ -7,6 +7,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Date;
+use Zap\Helper\TimeHelper;
 use Zap\Models\Builders\SchedulePeriodBuilder;
 
 /**
@@ -86,7 +87,7 @@ class SchedulePeriod extends Model
     }
 
     /**
-     * Get the duration in minutes.
+     * Get the duration in minutes (overnight-aware).
      */
     public function getDurationMinutesAttribute(): int
     {
@@ -94,11 +95,7 @@ class SchedulePeriod extends Model
             return 0;
         }
 
-        $baseDate = '2024-01-01'; // Use a consistent base date for time parsing
-        $start = Carbon::parse($baseDate.' '.$this->start_time);
-        $end = Carbon::parse($baseDate.' '.$this->end_time);
-
-        return (int) $start->diffInMinutes($end);
+        return TimeHelper::durationInMinutes($this->start_time, $this->end_time);
     }
 
     /**
@@ -110,15 +107,21 @@ class SchedulePeriod extends Model
     }
 
     /**
-     * Get the full end datetime.
+     * Get the full end datetime (overnight-aware: adds a day if end < start).
      */
     public function getEndDateTimeAttribute(): CarbonInterface
     {
-        return Date::parse($this->date->format('Y-m-d').' '.$this->end_time);
+        $endDateTime = Date::parse($this->date->format('Y-m-d').' '.$this->end_time);
+
+        if (TimeHelper::isOvernight($this->start_time, $this->end_time)) {
+            $endDateTime = $endDateTime->addDay();
+        }
+
+        return $endDateTime;
     }
 
     /**
-     * Check if this period overlaps with another period.
+     * Check if this period overlaps with another period (overnight-aware).
      */
     public function overlapsWith(SchedulePeriod $other): bool
     {
@@ -127,7 +130,18 @@ class SchedulePeriod extends Model
             return false;
         }
 
-        return $this->start_time < $other->end_time && $this->end_time > $other->start_time;
+        return TimeHelper::periodsOverlap(
+            $this->start_time, $this->end_time,
+            $other->start_time, $other->end_time
+        );
+    }
+
+    /**
+     * Check if this period crosses midnight.
+     */
+    public function isOvernight(): bool
+    {
+        return TimeHelper::isOvernight($this->start_time, $this->end_time);
     }
 
     /**

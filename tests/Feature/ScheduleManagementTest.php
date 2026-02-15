@@ -269,12 +269,21 @@ it('can create complex recurring schedule', function () {
 it('can validate schedule periods', function () {
     $user = createUser();
 
+    // Same start and end time is invalid (zero duration)
     expect(function () use ($user) {
         Zap::for($user)
             ->from('2025-01-01')
-            ->addPeriod('10:00', '09:00') // End time before start time
+            ->addPeriod('10:00', '10:00')
             ->save();
     })->toThrow(InvalidScheduleException::class);
+
+    // End time before start time is valid (overnight period: 10:00→09:00 = 23 hours)
+    $schedule = Zap::for($user)
+        ->from('2025-01-01')
+        ->addPeriod('10:00', '09:00')
+        ->save();
+
+    expect($schedule->periods->first()->duration_minutes)->toBe(1380); // 23 hours
 });
 
 it('can check for schedule conflicts without saving', function () {

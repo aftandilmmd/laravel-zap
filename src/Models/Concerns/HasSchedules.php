@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Zap\Builders\ScheduleBuilder;
 use Zap\Data\FrequencyConfig;
 use Zap\Enums\ScheduleTypes;
+use Zap\Helper\TimeHelper;
 use Zap\Services\ConflictDetectionService;
 
 /**
@@ -175,7 +176,7 @@ trait HasSchedules
     }
 
     /**
-     * Check if a specific schedule blocks the given time period.
+     * Check if a specific schedule blocks the given time period (overnight-aware).
      */
     protected function scheduleBlocksTime(\Zap\Models\Schedule $schedule, string $date, string $startTime, string $endTime): bool
     {
@@ -189,12 +190,7 @@ trait HasSchedules
             return $this->recurringScheduleBlocksTime($schedule, $date, $startTime, $endTime, $bufferMinutes);
         }
 
-        // For non-recurring schedules: if no buffer, keep using the optimized overlapping scope
-        if ($bufferMinutes <= 0) {
-            return $schedule->periods()->forDate($date)->overlapping($date, $startTime, $endTime, $schedule->end_date ?? null)->exists();
-        }
-
-        // With buffer, we need to evaluate in PHP
+        // Use PHP-based overnight-aware overlap checking for all cases
         $periods = $schedule->periods()->forDate($date)->get();
 
         foreach ($periods as $period) {
@@ -245,36 +241,20 @@ trait HasSchedules
     }
 
     /**
-     * Check if two time periods overlap.
+     * Check if two time periods overlap (overnight-aware).
      */
     protected function timePeriodsOverlap(string $start1, string $end1, string $start2, string $end2): bool
     {
-        // Normalize times to HH:MM format for consistent comparison
-        $start1 = substr($start1, 0, 5);
-        $end1 = substr($end1, 0, 5);
-        $start2 = substr($start2, 0, 5);
-        $end2 = substr($end2, 0, 5);
-
-        return $start1 < $end2 && $end1 > $start2;
+        return TimeHelper::periodsOverlap($start1, $end1, $start2, $end2);
     }
 
     /**
      * Check if two time periods overlap, applying an optional symmetric buffer (in minutes)
-     * around the first period.
+     * around the first period (overnight-aware).
      */
     protected function timePeriodsOverlapWithBuffer(string $start1, string $end1, string $start2, string $end2, int $bufferMinutes = 0): bool
     {
-        if ($bufferMinutes <= 0) {
-            return $this->timePeriodsOverlap($start1, $end1, $start2, $end2);
-        }
-
-        $baseDate = '2024-01-01';
-        $s1 = \Carbon\Carbon::parse($baseDate.' '.$start1)->subMinutes($bufferMinutes);
-        $e1 = \Carbon\Carbon::parse($baseDate.' '.$end1)->addMinutes($bufferMinutes);
-        $s2 = \Carbon\Carbon::parse($baseDate.' '.$start2);
-        $e2 = \Carbon\Carbon::parse($baseDate.' '.$end2);
-
-        return $s1->lt($e2) && $e1->gt($s2);
+        return TimeHelper::periodsOverlapWithBuffer($start1, $end1, $start2, $end2, $bufferMinutes);
     }
 
     /**
@@ -388,6 +368,11 @@ trait HasSchedules
             $currentTime = \Carbon\Carbon::parse($date.' '.$period->start_time);
             $periodEnd = \Carbon\Carbon::parse($date.' '.$period->end_time);
 
+            // Handle overnight periods (e.g., 22:00 → 02:00)
+            if (TimeHelper::isOvernight($period->start_time, $period->end_time)) {
+                $periodEnd->addDay();
+            }
+
             while ($currentTime->lessThan($periodEnd)) {
                 $slotEnd = $currentTime->copy()->addMinutes($slotDuration);
 
@@ -478,14 +463,21 @@ trait HasSchedules
                 continue; // Skip unavailable slots
             }
 
-            $slotStart = Carbon::parse($slot['start_time']);
-            $slotEnd = Carbon::parse($slot['end_time']);
+            $sStart = TimeHelper::timeToMinutes($slot['start_time']);
+            $sEnd = TimeHelper::timeToMinutes($slot['end_time']);
+            $rStart = TimeHelper::timeToMinutes($startTime);
+            $rEnd = TimeHelper::timeToMinutes($endTime);
 
-            $requestedStart = Carbon::parse($startTime);
-            $requestedEnd = Carbon::parse($endTime);
+            // Handle overnight slots
+            if ($sEnd <= $sStart) {
+                $sEnd += 1440;
+            }
+            if ($rEnd <= $rStart) {
+                $rEnd += 1440;
+            }
 
             // The requested time range must be fully contained within the slot
-            if ($requestedStart >= $slotStart && $requestedEnd <= $slotEnd) {
+            if ($rStart >= $sStart && $rEnd <= $sEnd) {
                 return true;
             }
         }
@@ -495,6 +487,7 @@ trait HasSchedules
 
     /**
      * Get all availability periods for a specific date in a single optimized query.
+     * Includes overflow periods from previous day's overnight schedules.
      */
     protected function getAvailabilityPeriodsForDate(string $date): \Illuminate\Support\Collection
     {
@@ -536,25 +529,81 @@ trait HasSchedules
             }
         });
 
+        // Check previous day for overnight overflow periods
+        $previousDate = $checkDate->copy()->subDay()->format('Y-m-d');
+        $previousDaySchedules = $this->getScheduleClass()::where('schedulable_type', $this->getMorphClass())
+            ->where('schedulable_id', $this->getKey())
+            ->availability()
+            ->active()
+            ->forDate($previousDate)
+            ->with('periods')
+            ->get();
+
+        $previousDaySchedules->each(function (\Zap\Models\Schedule $schedule) use ($previousDate, $checkDate, &$allPeriods) {
+            if (! $schedule->isActiveOn($previousDate)) {
+                return;
+            }
+
+            $periods = $schedule->is_recurring && $this->shouldCreateRecurringInstance($schedule, $checkDate->copy()->subDay())
+                ? $schedule->periods
+                : ($schedule->is_recurring ? collect() : $schedule->periods()->forDate($previousDate)->get());
+
+            $periods->each(function ($period) use (&$allPeriods) {
+                if (TimeHelper::isOvernight($period->start_time, $period->end_time)) {
+                    // Add the overflow portion: 00:00 → end_time
+                    $allPeriods->push((object) [
+                        'start_time' => '00:00',
+                        'end_time' => $period->end_time,
+                    ]);
+                }
+            });
+        });
+
         return $allPeriods;
     }
 
     /**
      * Get all blocking schedules for a specific date in a single query.
+     * Includes previous day's overnight blocking schedules.
      */
     protected function getBlockingSchedulesForDate(string $date): \Illuminate\Support\Collection
     {
-        return $this->getScheduleClass()::where('schedulable_type', $this->getMorphClass())
+        $blockingTypes = [
+            ScheduleTypes::APPOINTMENT->value,
+            ScheduleTypes::BLOCKED->value,
+            ScheduleTypes::CUSTOM->value,
+        ];
+
+        $schedules = $this->getScheduleClass()::where('schedulable_type', $this->getMorphClass())
             ->where('schedulable_id', $this->getKey())
-            ->whereIn('schedule_type', [
-                ScheduleTypes::APPOINTMENT->value,
-                ScheduleTypes::BLOCKED->value,
-                ScheduleTypes::CUSTOM->value,
-            ])
+            ->whereIn('schedule_type', $blockingTypes)
             ->active()
             ->forDate($date)
             ->with('periods')
             ->get();
+
+        // Also check previous day for overnight blocking schedules
+        $previousDate = \Carbon\Carbon::parse($date)->subDay()->format('Y-m-d');
+        $previousDaySchedules = $this->getScheduleClass()::where('schedulable_type', $this->getMorphClass())
+            ->where('schedulable_id', $this->getKey())
+            ->whereIn('schedule_type', $blockingTypes)
+            ->active()
+            ->forDate($previousDate)
+            ->with('periods')
+            ->get();
+
+        // Filter previous day schedules to only include those with overnight periods
+        $previousDaySchedules->each(function ($schedule) use ($previousDate, $date, &$schedules) {
+            $hasOvernightPeriod = $schedule->periods
+                ->filter(fn ($p) => TimeHelper::isOvernight($p->start_time, $p->end_time))
+                ->isNotEmpty();
+
+            if ($hasOvernightPeriod) {
+                $schedules->push($schedule);
+            }
+        });
+
+        return $schedules;
     }
 
     /**
