@@ -60,12 +60,21 @@ abstract class AbstractWeeklyFrequencyConfig extends FrequencyConfig
 
     public function shouldCreateInstance(\Carbon\CarbonInterface $date): bool
     {
-        return empty($this->days) || in_array(strtolower($date->format('l')), $this->days) &&
-            $this->startsOn->diffInWeeks($date) % static::getFrequency() === 0;
+        $dayMatches = empty($this->days) || in_array(strtolower($date->format('l')), $this->days);
+
+        if ($this->startsOn === null) {
+            return $dayMatches;
+        }
+
+        return $dayMatches && $this->startsOn->diffInWeeks($date) % static::getFrequency() === 0;
     }
 
     public function shouldCreateRecurringInstance(Schedule $schedule, \Carbon\CarbonInterface $date): bool
     {
+        if ($this->startsOn === null) {
+            $this->setStartFromStartDate($schedule->start_date);
+        }
+
         $allowedDays = ! empty($this->days) ? $this->days : ['monday'];
         $allowedDayNumbers = array_map(function ($day) {
             return match (strtolower($day)) {
